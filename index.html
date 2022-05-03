@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jogo da Velha</title>
+    <style>
+        * {
+            padding: 0;
+            margin: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Work Sans', sans-serif;
+            font-size: 1em;
+            background: #eee;
+        }
+
+        .board {
+            width: 504px;
+            height: 504px;
+            margin: 5px auto;
+            background: #fff;
+            border-collapse: collapse;
+            border: 1px #ccc solid;
+            table-layout: fixed;
+        }
+
+        .board td {
+            height: 33.3333333%;
+            border: 1px #ccc solid;
+            text-align: center;
+            font-size: 5em;
+            cursor: pointer;
+        }
+
+        header {
+            text-align: center;
+            padding: 5% 0;
+        }
+
+        header h1 {
+            font-weight: 500;
+        }
+
+        .board.disabled {
+            pointer-events: none;
+            background: #ddd;
+        }
+
+        .board.disabled td.highlight {
+            background: #fff;
+            color: green;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1 id="message">Jogador atual: <span id="currentPlayer"></span></h1>
+    </header>
+    <table class="board">
+        <tr>
+            <td></td>
+            <td></td>
+            <td></td>
+        </tr>
+        <tr>
+            <td></td>
+            <td></td>
+            <td></td>
+        </tr>
+        <tr>
+            <td></td>
+            <td></td>
+            <td></td>
+        </tr>
+    </table>
+
+    <script>
+        const $currentPlayer = document.querySelector('#currentPlayer');
+        const $cells = document.querySelectorAll('.board td');
+        const $message = document.querySelector('#message');
+        const $board = document.querySelector('.board');
+        const $rows = document.querySelectorAll('.board tr');
+
+        const board = [
+            [null, null, null],
+            [null, null, null],
+            [null, null, null],
+        ];
+
+        let currentPlayer = 'X';
+
+        showCurrentPlayer();
+
+        $cells.forEach(($cell) => {
+            $cell.addEventListener('click', move);
+        });
+
+        function getElementIndex($element) {
+            return [...$element.parentElement.children].indexOf($element);
+        }
+
+        function getCoords($cell) {
+            const x = getElementIndex($cell);
+            const y = getElementIndex($cell.parentElement);
+
+            return [x, y];
+        }
+
+        function togglePlayer() {
+            currentPlayer = currentPlayer === "X"
+                ? "O"
+                : "X";
+
+            showCurrentPlayer();
+
+            return currentPlayer;
+        }
+
+        function showCurrentPlayer() {
+            $currentPlayer.innerText = currentPlayer;
+        }
+
+        function move() {
+            const [x, y] = getCoords(this);
+
+            if (board[y][x] !== null) {
+                return false;
+            }
+
+            board[y][x] = currentPlayer;
+            
+            this.innerText = currentPlayer;
+
+            const [wins, winningPositions] = checkWinner(board, currentPlayer);
+
+            if (! wins) {
+                togglePlayer();
+                checkTie();
+            } else {
+                showWinner(currentPlayer, winningPositions);
+            }
+        }
+
+        function checkTie() {
+            const isTie = board.flat().filter(x => x === null).length === 0;
+
+            if (isTie) showTie();
+        }
+
+        function showTie() {
+            $message.innerText = 'Empate!';
+            $board.classList.add('disabled');
+        }
+
+        function showWinner(player, winningPositions) {
+            $message.innerText = `O jogador que venceu foi ${player}`;
+            $board.classList.add('disabled');
+            highlightPositions(winningPositions);
+        }
+
+        function highlightPositions(positions) {
+            for (const [x, y] of positions) {
+                const element = $rows[y].children[x];
+
+                element.classList.add('highlight');
+            }
+        }
+
+        function checkWinner(board, player) {
+            // Verifica se o player venceu na direção horizontal
+            for (let y = 0; y < board.length; y++) {
+                const row = board[y];
+
+                if (row.every(cell => cell === player)) {
+                    return [true, row.map((_, x) => [x, y])];
+                }
+            }
+
+            // Verifica se o player venceu na direção vertical
+            for (let x = 0; x < board[0].length; x++) {
+                let wins = true;
+                let winningPositions = [];
+
+                for (let y = 0; y < board.length; y++) {
+                    const cell = board[y][x];
+
+                    if (cell !== player) {
+                        wins = false;
+                        break;
+                    } else {
+                        winningPositions.push([x, y]);
+                    }
+                }
+
+                if (wins) return [true, winningPositions];
+            }
+
+            // Verifica a diagonal primária
+            let wins = true;
+            let winningPositions = [];
+
+            for (let y = 0; y < board.length; y++) {
+                const cell = board[y][y];
+
+                if (cell !== player) {
+                    wins = false;
+                    winningPositions = [];
+                    break;
+                } else {
+                    winningPositions.push([y, y]);
+                }
+            }
+
+            if (wins) return [true, winningPositions];
+
+            // Verifica a diagonal secundária
+            wins = true;
+            winningPositions = [];
+
+            for (let y = 0; y < board.length; y++) {
+                const row = board[y];
+                const x = row.length - 1 - y;
+                const cell = row[x];
+
+                if (cell !== player) {
+                    wins = false;
+                    winningPositions = [];
+                    break;
+                } else {
+                    winningPositions.push([x, y]);
+                }
+            }
+
+            return [wins, winningPositions];
+        }
+
+        function runTests() {
+            function togglePlayer(player) {
+                return player === "X"
+                    ? "O"
+                    : "X";
+            }
+
+            function assertWins(board, player) {
+                console.assert(
+                    checkWinner(board, player)[0],
+                    `O jogador ${player} não venceu na board ${JSON.stringify(board)}. Ele deve vencer.`
+                );
+
+                console.assert(
+                    !(checkWinner(board, togglePlayer(player))[0]),
+                    `O jogador ${player} venceu na board ${JSON.stringify(board)}. Ele não deve vencer.`
+                );
+            }
+
+            // Verifica na horizontal
+            assertWins([
+                ['X', 'X', 'X'],
+                ['X', 'X', null],
+                ['X', 'O', null],
+            ], 'X');
+
+            assertWins([
+                ['X', 'O', 'O'],
+                ['O', 'O', 'O'],
+                ['X', 'X', '']
+            ], 'O');
+
+            assertWins([
+                ['X', 'O', 'O'],
+                ['O', 'O', 'X'],
+                ['X', 'X', 'X']
+            ], 'X');
+
+            // Verifica na vertical
+            assertWins([
+                ['X', '', 'O'],
+                ['X', '', 'X'],
+                ['X', '', 'X']
+            ], 'X');
+
+            assertWins([
+                ['', 'O', 'O'],
+                ['', 'O', 'X'],
+                ['', 'O', 'X']
+            ], 'O');
+
+            assertWins([
+                ['X', 'X', 'X'],
+                ['O', 'O', 'X'],
+                ['X', 'O', 'X']
+            ], 'X');
+
+            // Verifica na diagonal principal
+            assertWins([
+                ['X', 'X', ''],
+                ['O', 'X', ''],
+                ['X', 'O', 'X']
+            ], 'X');
+
+            assertWins([
+                ['O', 'X', ''],
+                ['O', 'O', ''],
+                ['X', 'O', 'O']
+            ], 'O');
+
+            // Verifica na diagonal secundária
+            assertWins([
+                ['O', 'X', 'X'],
+                ['O', 'X', ''],
+                ['X', 'O', 'O']
+            ], 'X');
+
+            assertWins([
+                ['O', 'X', 'O'],
+                ['O', 'O', ''],
+                ['O', 'O', 'O']
+            ], 'O');
+
+            console.log('Os testes foram um sucesso.');
+        }
+    </script>
+</body>
+</html>
